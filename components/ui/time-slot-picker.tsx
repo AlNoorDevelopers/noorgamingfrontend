@@ -54,8 +54,10 @@ export function TimeSlotPicker({ stationId, selectedDate, onSlotSelect, selected
 
   const getEndTime = (startTime: string) => {
     const [hours, minutes] = startTime.split(':')
-    const endHour = parseInt(hours) + 1
-    return `${endHour.toString().padStart(2, '0')}:${minutes}:00`
+    const startDate = new Date()
+    startDate.setHours(parseInt(hours), parseInt(minutes), 0, 0)
+    const endDate = new Date(startDate.getTime() + 60 * 60 * 1000) // +1 hour
+    return `${endDate.getHours().toString().padStart(2, '0')}:${endDate.getMinutes().toString().padStart(2, '0')}:00`
   }
 
   if (loading) {

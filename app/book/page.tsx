@@ -25,6 +25,8 @@ function BookPageContent() {
   const [selectedStartTime, setSelectedStartTime] = useState(urlStartTime)
   const [selectedEndTime, setSelectedEndTime] = useState(urlEndTime)
   const [duration, setDuration] = useState(1)
+  const [userCount, setUserCount] = useState(1)
+  const [advancePayment, setAdvancePayment] = useState(false)
 
   // Check auth state with session persistence
   useEffect(() => {
@@ -45,10 +47,12 @@ function BookPageContent() {
 
   const handleSlotSelect = (startTime: string, endTime: string) => {
     setSelectedStartTime(startTime)
-    // Calculate end time based on duration
+    // Calculate end time using proper date math
     const [hours, minutes] = startTime.split(':')
-    const endHour = parseInt(hours) + duration
-    const calculatedEndTime = `${endHour.toString().padStart(2, '0')}:${minutes}:00`
+    const startDate = new Date()
+    startDate.setHours(parseInt(hours), parseInt(minutes), 0, 0)
+    const endDate = new Date(startDate.getTime() + duration * 60 * 60 * 1000)
+    const calculatedEndTime = `${endDate.getHours().toString().padStart(2, '0')}:${endDate.getMinutes().toString().padStart(2, '0')}:00`
     setSelectedEndTime(calculatedEndTime)
   }
 
@@ -74,20 +78,20 @@ function BookPageContent() {
     setError('')
 
     try {
-      const [startHour, startMin] = selectedStartTime.split(':')
-      
-      const startAt = new Date(`${selectedDate}T${startHour}:${startMin}:00`)
-      const endAt = new Date(startAt.getTime() + duration * 60 * 60 * 1000)
+      // Send IST datetime strings directly (no timezone conversion)
+      const startAtIST = `${selectedDate} ${selectedStartTime}`
+      const endAtIST = `${selectedDate} ${selectedEndTime}`
       
       const { error } = await bookings.create({
         user_id: user.id,
         station_id: stationId,
-        start_at: startAt.toISOString(),
-        end_at: endAt.toISOString(),
+        start_at: startAtIST,
+        end_at: endAtIST,
         start_time: selectedStartTime,
         end_time: selectedEndTime,
-        total_amount: stationRate * duration,
-        duration_hours: duration
+        duration_hours: duration,
+        user_count: userCount,
+        advance_payment: advancePayment
       })
 
       if (error) {
@@ -169,8 +173,10 @@ function BookPageContent() {
                       // Update end time when duration changes
                       if (selectedStartTime) {
                         const [hours, minutes] = selectedStartTime.split(':')
-                        const endHour = parseInt(hours) + newDuration
-                        const calculatedEndTime = `${endHour.toString().padStart(2, '0')}:${minutes}:00`
+                        const startDate = new Date()
+                        startDate.setHours(parseInt(hours), parseInt(minutes), 0, 0)
+                        const endDate = new Date(startDate.getTime() + newDuration * 60 * 60 * 1000)
+                        const calculatedEndTime = `${endDate.getHours().toString().padStart(2, '0')}:${endDate.getMinutes().toString().padStart(2, '0')}:00`
                         setSelectedEndTime(calculatedEndTime)
                       }
                     }}
@@ -184,10 +190,52 @@ function BookPageContent() {
                 </div>
               )}
 
+              {selectedStartTime && (
+                <div>
+                  <label className="block text-sm font-medium mb-2">Number of Users</label>
+                  <select
+                    value={userCount}
+                    onChange={(e) => setUserCount(Number(e.target.value))}
+                    className="w-full bg-gray-900 border border-cp-cyan/30 rounded px-3 py-2 focus:border-cp-cyan focus:outline-none text-white"
+                    title="Select number of users"
+                  >
+                    <option value={1}>1 User</option>
+                    <option value={2}>2 Users</option>
+                    <option value={3}>3 Users</option>
+                    <option value={4}>4 Users</option>
+                  </select>
+                </div>
+              )}
+
               {user && selectedStartTime && (
-                <div className="flex justify-between text-lg font-bold border-t border-cp-cyan/20 pt-4">
-                  <span>Total:</span>
-                  <span className="text-cp-yellow">₹{stationRate * duration}</span>
+                <div>
+                  <label className="flex items-center space-x-2 mb-4">
+                    <input
+                      type="checkbox"
+                      checked={advancePayment}
+                      onChange={(e) => setAdvancePayment(e.target.checked)}
+                      className="rounded border-cp-cyan/30 bg-gray-900 text-cp-cyan focus:ring-cp-cyan"
+                    />
+                    <span className="text-sm">Pay 30% advance (₹{Math.round(stationRate * duration * userCount * 0.3)})</span>
+                  </label>
+                </div>
+              )}
+
+              {user && selectedStartTime && (
+                <div className="border-t border-cp-cyan/20 pt-4">
+                  <div className="text-sm text-gray-300 mb-2">
+                    ₹{stationRate}/hour × {duration} hour{duration > 1 ? 's' : ''} × {userCount} user{userCount > 1 ? 's' : ''}
+                  </div>
+                  {advancePayment && (
+                    <div className="flex justify-between text-sm mb-1">
+                      <span>Advance (30%):</span>
+                      <span className="text-cp-cyan">₹{Math.round(stationRate * duration * userCount * 0.3)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-lg font-bold">
+                    <span>{advancePayment ? 'Pay Now:' : 'Total:'}</span>
+                    <span className="text-cp-yellow">₹{advancePayment ? Math.round(stationRate * duration * userCount * 0.3) : stationRate * duration * userCount}</span>
+                  </div>
                 </div>
               )}
             </div>

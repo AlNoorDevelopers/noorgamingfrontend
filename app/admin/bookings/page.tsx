@@ -1,9 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { NavBar } from '@/components/ui/navbar'
+import { AdminNavBar } from '@/components/ui/admin-navbar'
 import { AdminGuard } from '@/components/ui/admin-guard'
-import { bookings, profiles } from '@/lib/supabase'
+import { bookings, admin } from '@/lib/supabase'
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
 
 // Booking Edit Modal Component
 const BookingModal = ({ booking, onSave, onClose }: any) => {
@@ -133,6 +135,32 @@ const DeleteModal = ({ booking, onConfirm, onClose }: any) => {
   )
 }
 
+// View Booking Details Modal Component
+const ViewModal = ({ booking, onClose }: any) => {
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={onClose}>
+      <div className="bg-cp-gray border border-cp-cyan/30 rounded-lg p-6 w-full max-w-2xl max-h-96 overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <h3 className="text-cp-yellow font-bold text-xl mb-4">Booking Details</h3>
+        <div className="grid grid-cols-2 gap-4 text-white text-sm">
+          <div><strong>ID:</strong> {booking?.id}</div>
+          <div><strong>User:</strong> {booking?.user_profiles?.username || 'Unknown'}</div>
+          <div><strong>Station:</strong> {booking?.stations?.name}</div>
+          <div><strong>Type:</strong> {booking?.stations?.type}</div>
+          <div><strong>Created:</strong> {new Date(booking?.created_at).toLocaleString()}</div>
+          <div><strong>Play Date:</strong> {new Date(booking?.start_at).toLocaleDateString()}</div>
+          <div><strong>Start Time:</strong> {booking?.start_time?.slice(0, 5)}</div>
+          <div><strong>End Time:</strong> {booking?.end_time?.slice(0, 5)}</div>
+          <div><strong>Duration:</strong> {booking?.duration_hours}h</div>
+          <div><strong>Amount:</strong> ₹{booking?.total_amount}</div>
+          <div><strong>Status:</strong> {booking?.status}</div>
+          <div><strong>Paid:</strong> {booking?.paid ? 'Yes' : 'No'}</div>
+        </div>
+        <button onClick={onClose} className="mt-4 bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700">Close</button>
+      </div>
+    </div>
+  )
+}
+
 export default function AdminBookings() {
   const [activeBookings, setActiveBookings] = useState<any[]>([])
   const [cancelledBookings, setCancelledBookings] = useState<any[]>([])
@@ -141,8 +169,12 @@ export default function AdminBookings() {
   const [loading, setLoading] = useState(false)
   const [editingBooking, setEditingBooking] = useState<any>(null)
   const [deletingBooking, setDeletingBooking] = useState<any>(null)
+  const [viewingBooking, setViewingBooking] = useState<any>(null)
   const [filter, setFilter] = useState<string>('ALL')
   const [showCancelled, setShowCancelled] = useState(false)
+  const [userProfiles, setUserProfiles] = useState<any>({})
+  const [editingPayment, setEditingPayment] = useState<string | null>(null)
+  const [paymentAmount, setPaymentAmount] = useState('')
 
   useEffect(() => {
     loadBookings()
@@ -191,17 +223,17 @@ export default function AdminBookings() {
     // Get unique user IDs
     const userIds = Array.from(new Set(bookingList.map(b => b.user_id)))
     
-    // Fetch user profiles
+    // Fetch user profiles using admin function
     const userProfiles: any = {}
-    for (const userId of userIds) {
-      try {
-        const { data } = await profiles.get(userId)
-        if (data) {
-          userProfiles[userId] = { username: data.username, full_name: data.full_name }
-        }
-      } catch (error) {
-        console.error('Error fetching user profile:', error)
+    try {
+      const { data } = await admin.getUserProfiles(userIds)
+      if (data) {
+        data.forEach((profile: any) => {
+          userProfiles[profile.user_id] = { username: profile.username, full_name: profile.full_name }
+        })
       }
+    } catch (error) {
+      console.error('Error fetching user profiles:', error)
     }
     
     // Add user details to bookings
@@ -241,6 +273,22 @@ export default function AdminBookings() {
     }
   }
 
+  const handleUpdatePayment = async (bookingId: string, amount: number) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/admin/bookings/${bookingId}/payment`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount_paid: amount })
+      })
+      if (response.ok) {
+        loadBookings()
+        setEditingPayment(null)
+      }
+    } catch (error) {
+      console.error('Payment update failed:', error)
+    }
+  }
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString()
   }
@@ -261,25 +309,10 @@ export default function AdminBookings() {
 
   return (
     <AdminGuard>
-      <div className="min-h-screen bg-cp-black">
-        <NavBar />
+      <div className="min-h-screen">
+        <AdminNavBar />
         
-        {/* Admin navbar positioned below main navbar */}
-        <div className="bg-gray-800 border-b border-cyan-500/30 min-h-[60px] flex items-center w-full mt-20">
-          <div className="max-w-7xl mx-auto px-6 w-full">
-            <div className="flex space-x-8">
-              <div className="text-white py-4 px-2 text-sm font-bold">ADMIN NAVIGATION:</div>
-              <a href="/admin/dashboard" className="py-4 px-2 text-sm font-medium text-gray-300 hover:text-cyan-400">Dashboard</a>
-              <a href="/admin/stations" className="py-4 px-2 text-sm font-medium text-gray-300 hover:text-cyan-400">Stations</a>
-              <a href="/admin/bookings" className="py-4 px-2 text-sm font-medium text-yellow-400 hover:text-cyan-400">Bookings</a>
-              <a href="/admin/users" className="py-4 px-2 text-sm font-medium text-gray-300 hover:text-cyan-400">Users</a>
-              <a href="/admin/analytics" className="py-4 px-2 text-sm font-medium text-gray-300 hover:text-cyan-400">Analytics</a>
-              <a href="/admin/settings" className="py-4 px-2 text-sm font-medium text-gray-300 hover:text-cyan-400">Settings</a>
-            </div>
-          </div>
-        </div>
-        
-        <main className="pt-6 pb-12 px-6">
+        <main className="pt-24 pb-12 px-6">
           <div className="max-w-7xl mx-auto">
             <div className="mb-8">
               <h1 className="text-4xl font-bold text-cp-yellow">
@@ -352,12 +385,58 @@ export default function AdminBookings() {
                           <p className="text-gray-300 text-sm">{booking.user_profiles?.full_name || 'N/A'}</p>
                         </div>
                         <div>
-                          <p className="text-white"><strong>Date:</strong> {formatDate(booking.start_at)}</p>
+                          <p className="text-white"><strong>Created:</strong> {formatDate(booking.created_at)}</p>
+                          <p className="text-white"><strong>Play Date:</strong> {formatDate(booking.start_at)}</p>
                           <p className="text-white"><strong>Time:</strong> {formatTime(booking.start_time)} - {formatTime(booking.end_time)}</p>
                         </div>
                         <div>
                           <p className="text-white"><strong>Duration:</strong> {booking.duration_hours}h</p>
-                          <p className="text-white"><strong>Amount:</strong> ₹{booking.total_amount}</p>
+                          <div>
+                            <div className="text-cp-yellow">Total: ₹{booking.total_amount || 0}</div>
+                            <div className="text-xs">
+                              Paid: ₹{booking.amount_paid || 0}
+                              <div className="text-gray-300">
+                                Remaining: ₹{(booking.total_amount || 0) - (booking.amount_paid || 0)}
+                              </div>
+                              <div className="mt-1">
+                                Status: <span className={`px-1 py-0.5 rounded text-xs ${
+                                  (booking.amount_paid || 0) === 0 ? 'bg-red-500/20 text-red-400' :
+                                  (booking.amount_paid || 0) >= (booking.total_amount || 0) ? 'bg-green-500/20 text-green-400' : 
+                                  'bg-yellow-500/20 text-yellow-400'
+                                }`}>
+                                  {(booking.amount_paid || 0) === 0 ? 'Pending' :
+                                   (booking.amount_paid || 0) >= (booking.total_amount || 0) ? 'Full' : 'Partial'}
+                                </span>
+                              </div>
+                              {editingPayment === booking.id ? (
+                                <div className="flex gap-1 mt-1">
+                                  <input
+                                    type="number"
+                                    value={paymentAmount}
+                                    onChange={(e) => setPaymentAmount(e.target.value)}
+                                    className="w-20 px-1 py-0.5 text-xs bg-gray-800 rounded text-white"
+                                    placeholder="Amount"
+                                  />
+                                  <button
+                                    onClick={() => handleUpdatePayment(booking.id, Number(paymentAmount))}
+                                    className="px-2 py-0.5 bg-green-500/20 text-green-400 text-xs rounded"
+                                  >
+                                    Save
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => {
+                                    setEditingPayment(booking.id)
+                                    setPaymentAmount(booking.amount_paid?.toString() || '0')
+                                  }}
+                                  className="ml-1 text-xs text-cp-cyan hover:underline"
+                                >
+                                  Edit
+                                </button>
+                              )}
+                            </div>
+                          </div>
                         </div>
                         <div>
                           <span className={`px-2 py-1 rounded text-xs text-white ${getStatusColor(booking.status)}`}>
@@ -366,6 +445,12 @@ export default function AdminBookings() {
                         </div>
                       </div>
                       <div className="flex gap-2 ml-4">
+                        <button
+                          onClick={() => setViewingBooking(booking)}
+                          className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
+                        >
+                          View
+                        </button>
                         <button
                           onClick={() => setEditingBooking(booking)}
                           className="bg-cp-cyan text-cp-black px-3 py-1 rounded text-sm hover:bg-cp-yellow"
@@ -404,7 +489,8 @@ export default function AdminBookings() {
                             <p className="text-gray-300 text-sm">{booking.user_profiles?.full_name || 'N/A'}</p>
                           </div>
                           <div>
-                            <p className="text-white"><strong>Date:</strong> {formatDate(booking.start_at)}</p>
+                            <p className="text-white"><strong>Created:</strong> {formatDate(booking.created_at)}</p>
+                            <p className="text-white"><strong>Play Date:</strong> {formatDate(booking.start_at)}</p>
                             <p className="text-white"><strong>Time:</strong> {formatTime(booking.start_time)} - {formatTime(booking.end_time)}</p>
                           </div>
                           <div>
@@ -416,6 +502,14 @@ export default function AdminBookings() {
                               CANCELLED
                             </span>
                           </div>
+                        </div>
+                        <div className="flex gap-2 ml-4">
+                          <button
+                            onClick={() => setViewingBooking(booking)}
+                            className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
+                          >
+                            View
+                          </button>
                         </div>
                     </div>
                   </div>
@@ -440,6 +534,14 @@ export default function AdminBookings() {
             booking={deletingBooking}
             onConfirm={() => handleCancel(deletingBooking.id)}
             onClose={() => setDeletingBooking(null)}
+          />
+        )}
+
+        {/* View Modal */}
+        {viewingBooking && (
+          <ViewModal
+            booking={viewingBooking}
+            onClose={() => setViewingBooking(null)}
           />
         )}
       </div>

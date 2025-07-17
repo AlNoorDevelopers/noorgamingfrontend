@@ -4,43 +4,85 @@ import { useState, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { NavBar } from '@/components/ui/navbar'
 import { Footer } from '@/components/ui/footer'
-import { auth } from '@/lib/supabase'
+import { auth, profiles } from '@/lib/supabase'
 
 function AuthPageContent() {
   const [isLogin, setIsLogin] = useState(true)
+  const [emailOrUsername, setEmailOrUsername] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [name, setName] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [fullName, setFullName] = useState('')
+  const [username, setUsername] = useState('')
+  const [phone, setPhone] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [usernameChecking, setUsernameChecking] = useState(false)
+  const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null)
   
   const searchParams = useSearchParams()
   const router = useRouter()
   const stationName = searchParams.get('name') || 'Gaming Station'
+
+  const checkUsername = async (username: string) => {
+    if (username.length < 3) return
+    setUsernameChecking(true)
+    try {
+      const { data } = await profiles.checkUsername(username)
+      setUsernameAvailable(data)
+    } catch (err) {
+      setUsernameAvailable(false)
+    } finally {
+      setUsernameChecking(false)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError('')
     
-    // Simple validation
-    if (!email || !password || (!isLogin && !name)) {
-      setError('Please fill in all fields')
-      setLoading(false)
-      return
+    // Validation
+    if (isLogin) {
+      if (!emailOrUsername || !password) {
+        setError('Please fill in all fields')
+        setLoading(false)
+        return
+      }
+    } else {
+      if (!email || !password || !confirmPassword || !fullName || !username) {
+        setError('Please fill in all fields')
+        setLoading(false)
+        return
+      }
+      if (password !== confirmPassword) {
+        setError('Passwords do not match')
+        setLoading(false)
+        return
+      }
+      if (usernameAvailable === false) {
+        setError('Username is not available')
+        setLoading(false)
+        return
+      }
     }
 
     try {
       const { data, error } = isLogin 
-        ? await auth.signIn(email, password)
-        : await auth.signUp(email, password)
+        ? await auth.signInWithUsernameOrEmail(emailOrUsername, password)
+        : await auth.signUp(email, password, { fullName, username, phone })
 
       if (error) {
         setError(error.message)
       } else {
-        // Redirect back to booking page
-        const params = new URLSearchParams(searchParams.toString())
-        router.push(`/book?${params.toString()}`)
+        if (isLogin) {
+          // Redirect back to booking page after login
+          const params = new URLSearchParams(searchParams.toString())
+          router.push(`/book?${params.toString()}`)
+        } else {
+          // Redirect to profile page after signup
+          router.push('/profile')
+        }
       }
     } catch (err) {
       setError('Something went wrong. Please try again.')
@@ -71,29 +113,72 @@ function AuthPageContent() {
           )}
 
           <form onSubmit={handleSubmit} className="bg-cp-gray/20 border border-cp-cyan/20 rounded-lg p-6 space-y-4">
-            {!isLogin && (
+            {isLogin ? (
               <div>
-                <label className="block text-sm font-medium mb-2">Name</label>
+                <label className="block text-sm font-medium mb-2">Email</label>
                 <input
                   type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  value={emailOrUsername}
+                  onChange={(e) => setEmailOrUsername(e.target.value)}
                   className="w-full bg-cp-black/50 border border-cp-cyan/30 rounded px-3 py-2 focus:border-cp-cyan focus:outline-none"
-                  placeholder="Enter your name"
+                  placeholder="Enter your email"
                 />
               </div>
+            ) : (
+              <>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Full Name</label>
+                  <input
+                    type="text"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    className="w-full bg-cp-black/50 border border-cp-cyan/30 rounded px-3 py-2 focus:border-cp-cyan focus:outline-none"
+                    placeholder="Enter your full name"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    Username <span className="text-xs text-red-400">(cannot be changed later)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={username}
+                    onChange={(e) => {
+                      setUsername(e.target.value)
+                      checkUsername(e.target.value)
+                    }}
+                    className="w-full bg-cp-black/50 border border-cp-cyan/30 rounded px-3 py-2 focus:border-cp-cyan focus:outline-none"
+                    placeholder="Choose a unique username"
+                  />
+                  {usernameChecking && <p className="text-xs text-gray-400 mt-1">Checking availability...</p>}
+                  {usernameAvailable === true && <p className="text-xs text-green-400 mt-1">✓ Username available</p>}
+                  {usernameAvailable === false && <p className="text-xs text-red-400 mt-1">✗ Username taken</p>}
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-2">Email</label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full bg-cp-black/50 border border-cp-cyan/30 rounded px-3 py-2 focus:border-cp-cyan focus:outline-none"
+                    placeholder="Enter your email"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-2">Phone <span className="text-xs text-gray-400">(optional)</span></label>
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="w-full bg-cp-black/50 border border-cp-cyan/30 rounded px-3 py-2 focus:border-cp-cyan focus:outline-none"
+                    placeholder="Enter your phone number"
+                  />
+                </div>
+              </>
             )}
-            
-            <div>
-              <label className="block text-sm font-medium mb-2">Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-cp-black/50 border border-cp-cyan/30 rounded px-3 py-2 focus:border-cp-cyan focus:outline-none"
-                placeholder="Enter your email"
-              />
-            </div>
             
             <div>
               <label className="block text-sm font-medium mb-2">Password</label>
@@ -105,6 +190,19 @@ function AuthPageContent() {
                 placeholder="Enter your password"
               />
             </div>
+            
+            {!isLogin && (
+              <div>
+                <label className="block text-sm font-medium mb-2">Confirm Password</label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full bg-cp-black/50 border border-cp-cyan/30 rounded px-3 py-2 focus:border-cp-cyan focus:outline-none"
+                  placeholder="Confirm your password"
+                />
+              </div>
+            )}
             
             <button
               type="submit"

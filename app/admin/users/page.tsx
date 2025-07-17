@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { NavBar } from '@/components/ui/navbar'
 import { AdminGuard } from '@/components/ui/admin-guard'
 import { AdminNavBar } from '@/components/ui/admin-navbar'
-import { profiles, bookings } from '@/lib/supabase'
+import { profiles, bookings, admin } from '@/lib/supabase'
 
 export default function AdminUsers() {
   const [userList, setUserList] = useState<any[]>([])
@@ -22,7 +22,7 @@ export default function AdminUsers() {
   const loadUsers = async () => {
     setLoading(true)
     try {
-      const { data: users } = await profiles.getAll()
+      const { data: users } = await admin.getAllUsers()
       const { data: allBookings } = await bookings.getAllBookings()
       
       // Count bookings and calculate spending per user

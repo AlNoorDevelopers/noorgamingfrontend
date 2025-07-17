@@ -6,6 +6,8 @@ import { AdminGuard } from '@/components/ui/admin-guard'
 import { AdminNavBar } from '@/components/ui/admin-navbar'
 import { bookings } from '@/lib/supabase'
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
+
 export default function AdminAnalytics() {
   const [analytics, setAnalytics] = useState({
     totalRevenue: 0,
@@ -21,10 +23,39 @@ export default function AdminAnalytics() {
   const [dateFilter, setDateFilter] = useState<'today' | '7days' | '30days' | 'custom'>('30days')
   const [showCalendar, setShowCalendar] = useState(false)
   const [customRange, setCustomRange] = useState({ start: '', end: '' })
+  const [stats, setStats] = useState({
+    totalBookings: 0,
+    paidBookings: 0,
+    totalRevenue: 0,
+    occupancyRate: 0
+  })
+  const [paymentStats, setPaymentStats] = useState({
+    total_advance_collected: 0,
+    total_remaining: 0,
+    advance_bookings_count: 0,
+    total_bookings: 0
+  })
 
   useEffect(() => {
     loadAnalytics()
   }, [dateFilter, customRange])
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/v1/admin/stats/summary`)
+        const data = await response.json()
+        setStats(data)
+        
+        const paymentResponse = await fetch(`${API_BASE_URL}/api/v1/admin/stats/payments`)
+        const paymentData = await paymentResponse.json()
+        setPaymentStats(paymentData)
+      } catch (error) {
+        console.error('Error fetching stats:', error)
+      }
+    }
+    fetchStats()
+  }, [])
 
   const loadAnalytics = async () => {
     setLoading(true)

@@ -12,7 +12,19 @@ export default function BookingsPage() {
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<any>(null)
   const router = useRouter()
+  const [error, setError] = useState('')
+  
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'UPCOMING': return 'bg-blue-500/20 text-blue-400'
+      case 'ONGOING': return 'bg-green-500/20 text-green-400'
+      case 'ENDED': return 'bg-gray-500/20 text-gray-400'
+      case 'CANCELLED': return 'bg-red-500/20 text-red-400'
+      default: return 'bg-yellow-500/20 text-yellow-400'
+    }
+  }
 
+  // Check auth state
   useEffect(() => {
     const getUser = async () => {
       const { data } = await auth.getUser()
@@ -54,25 +66,46 @@ export default function BookingsPage() {
 
   const BookingCard = ({ booking }: { booking: any }) => (
     <div className="bg-cp-gray/20 border border-cp-cyan/20 rounded-lg p-6 mb-4">
-      <div className="flex justify-between items-start mb-4">
+      <div className="grid grid-cols-2 gap-4 mb-4">
         <div>
-          <h3 className="text-lg font-bold text-cp-cyan">{booking.stations?.name || 'Gaming Station'}</h3>
-          <p className="text-sm text-gray-400">{booking.stations?.type || 'Gaming'}</p>
+          <span className="text-gray-400 text-sm">Date:</span>
+          <p className="font-semibold">{new Date(booking.start_at).toLocaleDateString()}</p>
         </div>
-        <div className="text-right">
-          <div className="text-xl font-bold text-cp-yellow">₹{booking.total_amount || 0}</div>
-          <div className="text-sm text-gray-400">{booking.duration_hours || 1}h session</div>
+        <div>
+          <span className="text-gray-400 text-sm">Time:</span>
+          <p className="font-semibold">
+            {new Date(booking.start_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - 
+            {new Date(booking.end_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </p>
         </div>
       </div>
-      
-      <div className="grid grid-cols-2 gap-4 text-sm">
+
+      <div className="grid grid-cols-2 gap-4 mb-4">
         <div>
-          <span className="text-gray-400">Start:</span>
-          <div className="font-semibold">{new Date(booking.start_at).toLocaleString()}</div>
+          <span className="text-gray-400 text-sm">Station:</span>
+          <p className="font-semibold">{booking.stations?.name}</p>
         </div>
         <div>
-          <span className="text-gray-400">End:</span>
-          <div className="font-semibold">{new Date(booking.end_at).toLocaleString()}</div>
+          <span className="text-gray-400 text-sm">Status:</span>
+          <span className={`px-2 py-1 rounded text-xs ${getStatusColor(booking.status)}`}>
+            {booking.status}
+          </span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <span className="text-gray-400 text-sm">Payment:</span>
+          <p className="font-semibold text-cp-yellow">₹{booking.total_amount || 0}</p>
+          {booking.advance_paid && (
+            <p className="text-xs text-cp-cyan">Advance paid: ₹{booking.advance_amount}</p>
+          )}
+        </div>
+        <div>
+          <span className="text-gray-400 text-sm">Payment Status:</span>
+          <span className={`px-2 py-1 rounded text-xs ${booking.payment_status === 'ADVANCE_PAID' ? 'bg-blue-500/20 text-blue-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
+            {booking.payment_status === 'ADVANCE_PAID' ? 'Advance Paid' : 'Pending'}
+          </span>
         </div>
       </div>
     </div>

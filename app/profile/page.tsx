@@ -23,6 +23,7 @@ export default function ProfilePage() {
   // Profile form
   const [username, setUsername] = useState('')
   const [fullName, setFullName] = useState('')
+  const [phone, setPhone] = useState('')
   const [profilePic, setProfilePic] = useState('')
   
   // Password change form
@@ -47,6 +48,7 @@ export default function ProfilePage() {
         setProfile(profileData)
         setUsername(profileData.username)
         setFullName(profileData.full_name)
+        setPhone(profileData.phone || '')
         setProfilePic(profileData.profile_pic_url || '')
       }
       setLoading(false)
@@ -128,7 +130,8 @@ export default function ProfilePage() {
       const profileData = {
         user_id: user.id,
         username,
-        full_name: fullName
+        full_name: fullName,
+        phone
       }
 
       const { error } = profile 
@@ -242,6 +245,9 @@ export default function ProfilePage() {
                 <h2 className="text-3xl font-bold text-cp-cyan mb-2">{profile?.username || 'No username set'}</h2>
                 <p className="text-xl text-gray-300 mb-1">{profile?.full_name || 'No name set'}</p>
                 <p className="text-sm text-gray-400 bg-cp-black/30 px-3 py-1 rounded-full inline-block">{user?.email}</p>
+                {profile?.phone && (
+                  <p className="text-sm text-gray-400 bg-cp-black/30 px-3 py-1 rounded-full inline-block mt-1">{profile.phone}</p>
+                )}
               </div>
             </div>
             
@@ -291,6 +297,18 @@ export default function ProfilePage() {
                   onChange={(e) => setFullName(e.target.value)}
                   className="w-full bg-cp-black/50 border border-cp-cyan/30 rounded px-3 py-2 focus:border-cp-cyan focus:outline-none"
                   placeholder="Enter full name"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="phone" className="block text-sm font-medium mb-2">Phone <span className="text-xs text-gray-400">(for booking notifications)</span></label>
+                <input
+                  id="phone"
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="w-full bg-cp-black/50 border border-cp-cyan/30 rounded px-3 py-2 focus:border-cp-cyan focus:outline-none"
+                  placeholder="Enter phone number"
                 />
               </div>
 
