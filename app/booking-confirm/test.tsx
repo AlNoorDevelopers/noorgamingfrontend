@@ -70,7 +70,8 @@ export default function BookingConfirmPage() {
       if (error) {
         setError(error.message)
       } else {
-        alert('Booking confirmed successfully!')
+        const pointsToEarn = Math.floor(stationRate * duration)
+        alert(`Booking confirmed successfully! You'll earn ${pointsToEarn} points when payment is completed.`)
         router.push('/stations')
       }
     } catch (err) {

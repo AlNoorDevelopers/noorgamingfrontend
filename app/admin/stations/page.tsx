@@ -12,6 +12,7 @@ export default function AdminStations() {
   const [editingStation, setEditingStation] = useState<any>(null)
   const [showAddForm, setShowAddForm] = useState(false)
   const [filter, setFilter] = useState('ALL')
+  const [searchTerm, setSearchTerm] = useState('')
 
   useEffect(() => {
     loadStations()
@@ -164,24 +165,35 @@ export default function AdminStations() {
     )
   }
 
+  // Add this function before the return statement
+  const getFilteredStations = () => {
+    let filtered = stationList
+    
+    // Apply type filter
+    if (filter !== 'ALL') {
+      filtered = filtered.filter(station => station.type === filter)
+    }
+    
+    // Apply search filter
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase()
+      filtered = filtered.filter(station => 
+        station.name.toLowerCase().includes(term) ||
+        (station.description || '').toLowerCase().includes(term) ||
+        station.hourly_rate.toString().includes(term)
+      )
+    }
+    
+    return filtered
+  }
+
   return (
     <AdminGuard>
       <div className="min-h-screen bg-cp-black">
         <NavBar />
         
-        {/* Admin navbar positioned below main navbar */}
-        <div className="bg-gray-800 border-b border-cyan-500/30 min-h-[60px] flex items-center w-full mt-20">
-          <div className="max-w-7xl mx-auto px-6 w-full">
-            <div className="flex space-x-8">
-              <div className="text-white py-4 px-2 text-sm font-bold">ADMIN NAVIGATION:</div>
-              <a href="/admin/dashboard" className="py-4 px-2 text-sm font-medium text-gray-300 hover:text-cyan-400">Dashboard</a>
-              <a href="/admin/stations" className="py-4 px-2 text-sm font-medium text-yellow-400 hover:text-cyan-400">Stations</a>
-              <a href="/admin/bookings" className="py-4 px-2 text-sm font-medium text-gray-300 hover:text-cyan-400">Bookings</a>
-              <a href="/admin/users" className="py-4 px-2 text-sm font-medium text-gray-300 hover:text-cyan-400">Users</a>
-              <a href="/admin/analytics" className="py-4 px-2 text-sm font-medium text-gray-300 hover:text-cyan-400">Analytics</a>
-              <a href="/admin/settings" className="py-4 px-2 text-sm font-medium text-gray-300 hover:text-cyan-400">Settings</a>
-            </div>
-          </div>
+        <div className="mt-20">
+          <AdminNavBar />
         </div>
         
         <main className="pt-6 pb-12 px-6">
@@ -201,42 +213,58 @@ export default function AdminStations() {
               </button>
             </div>
 
-            {/* Filter buttons */}
-            <div className="flex justify-between items-center mb-6">
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setFilter('ALL')}
-                  className={`px-4 py-2 rounded text-sm font-medium ${
-                    filter === 'ALL' 
-                      ? 'bg-cyan-500 text-black' 
-                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                  }`}
-                >
-                  All Stations
-                </button>
-                <button
-                  onClick={() => setFilter('PC')}
-                  className={`px-4 py-2 rounded text-sm font-medium ${
-                    filter === 'PC' 
-                      ? 'bg-cyan-500 text-black' 
-                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                  }`}
-                >
-                  PC Only
-                </button>
-                <button
-                  onClick={() => setFilter('PS5')}
-                  className={`px-4 py-2 rounded text-sm font-medium ${
-                    filter === 'PS5' 
-                      ? 'bg-cyan-500 text-black' 
-                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                  }`}
-                >
-                  PS5 Only
-                </button>
+            {/* Search and Filter Section */}
+            <div className="mb-6 space-y-4">
+              {/* Search Input */}
+              <div className="flex gap-4 items-center">
+                <div className="flex-1 max-w-md">
+                  <input
+                    type="text"
+                    placeholder="Search by station name, description, rate..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full bg-cp-black/50 border border-cp-cyan/30 rounded px-3 py-2 text-white placeholder-gray-400 focus:border-cp-cyan focus:outline-none"
+                  />
+                </div>
               </div>
-              <div className="text-gray-400 text-sm">
-                {stationList.filter(station => filter === 'ALL' || station.type === filter).length} stations
+              
+              {/* Filter buttons */}
+              <div className="flex justify-between items-center">
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setFilter('ALL')}
+                    className={`px-4 py-2 rounded text-sm font-medium ${
+                      filter === 'ALL' 
+                        ? 'bg-cyan-500 text-black' 
+                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    }`}
+                  >
+                    All Stations
+                  </button>
+                  <button
+                    onClick={() => setFilter('PC')}
+                    className={`px-4 py-2 rounded text-sm font-medium ${
+                      filter === 'PC' 
+                        ? 'bg-cyan-500 text-black' 
+                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    }`}
+                  >
+                    PC Only
+                  </button>
+                  <button
+                    onClick={() => setFilter('PS5')}
+                    className={`px-4 py-2 rounded text-sm font-medium ${
+                      filter === 'PS5' 
+                        ? 'bg-cyan-500 text-black' 
+                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    }`}
+                  >
+                    PS5 Only
+                  </button>
+                </div>
+                <div className="text-gray-400 text-sm">
+                  {getFilteredStations().length} stations
+                </div>
               </div>
             </div>
 
@@ -265,9 +293,7 @@ export default function AdminStations() {
               {loading ? (
                 <div className="col-span-full text-center text-cp-cyan">Loading stations...</div>
               ) : (
-                stationList
-                  .filter(station => filter === 'ALL' || station.type === filter)
-                  .map((station) => (
+                getFilteredStations().map((station) => (
                   <div key={station.id} className="bg-cp-gray/20 border border-cp-cyan/20 rounded-lg p-6">
                     <div className="flex justify-between items-start mb-4">
                       <h3 className="text-cp-yellow font-bold text-xl">{station.name}</h3>

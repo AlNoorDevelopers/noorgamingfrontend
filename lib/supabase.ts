@@ -113,13 +113,13 @@ export const bookings = {
   },
   
   getUserBookings: (userId: string) => 
-    supabase ? supabase.from('bookings').select('*, stations(*)').eq('user_id', userId).neq('status', 'CANCELLED') : Promise.resolve({ data: null, error: { message: 'Supabase not configured' } }),
+    supabase ? supabase.from('bookings').select('*, stations(*)').eq('user_id', userId).neq('status', 'CANCELLED').order('start_at', { ascending: false }) : Promise.resolve({ data: null, error: { message: 'Supabase not configured' } }),
   
   getUserCancelledBookings: (userId: string) => 
     supabase ? supabase.from('bookings').select('*, stations(*)').eq('user_id', userId).eq('status', 'CANCELLED') : Promise.resolve({ data: null, error: { message: 'Supabase not configured' } }),
   
   getAllBookings: () => 
-    supabase ? supabase.from('bookings').select('*, stations(*)').neq('status', 'CANCELLED') : Promise.resolve({ data: null, error: { message: 'Supabase not configured' } }),
+    supabase ? supabase.from('bookings').select('*, stations(*)').neq('status', 'CANCELLED').order('start_at', { ascending: false }) : Promise.resolve({ data: null, error: { message: 'Supabase not configured' } }),
   
   getAllCancelledBookings: () => 
     supabase ? supabase.from('bookings').select('*, stations(*)').eq('status', 'CANCELLED') : Promise.resolve({ data: null, error: { message: 'Supabase not configured' } }),
@@ -154,10 +154,14 @@ export const bookings = {
     console.log('Cancelling booking via API:', id)
     
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/admin/bookings/${id}/cancel`, {
-        method: 'PUT',
+      const { data: { session } } = await supabase?.auth.getSession() || { data: { session: null } }
+      const token = session?.access_token
+      
+      const response = await fetch(`${API_BASE_URL}/api/v1/bookings/${id}`, {
+        method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         }
       })
       
@@ -331,5 +335,64 @@ export const admin = {
       })
     
     return { data, error }
+  }
+}
+
+// Points helpers
+export const points = {
+  getBalance: async () => {
+    try {
+      const { data: { session } } = await supabase?.auth.getSession() || { data: { session: null } }
+      const token = session?.access_token
+      
+      const response = await fetch(`${API_BASE_URL}/api/v1/user/points`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      const result = await response.json()
+      return response.ok ? { data: result, error: null } : { data: null, error: { message: result.detail || 'Failed to get points' } }
+    } catch (error) {
+      return { data: null, error: { message: 'Network error' } }
+    }
+  },
+  
+  getHistory: async () => {
+    try {
+      const { data: { session } } = await supabase?.auth.getSession() || { data: { session: null } }
+      const token = session?.access_token
+      
+      const response = await fetch(`${API_BASE_URL}/api/v1/user/points/history`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      const result = await response.json()
+      return response.ok ? { data: result, error: null } : { data: null, error: { message: result.detail || 'Failed to get history' } }
+    } catch (error) {
+      return { data: null, error: { message: 'Network error' } }
+    }
+  },
+  
+  getRewards: async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/points/rewards`)
+      const result = await response.json()
+      return response.ok ? { data: result, error: null } : { data: null, error: { message: 'Failed to get rewards' } }
+    } catch (error) {
+      return { data: null, error: { message: 'Network error' } }
+    }
+  },
+  
+  redeemReward: async (rewardId: string) => {
+    try {
+      const { data: { session } } = await supabase?.auth.getSession() || { data: { session: null } }
+      const token = session?.access_token
+      
+      const response = await fetch(`${API_BASE_URL}/api/v1/points/redeem/${rewardId}`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      const result = await response.json()
+      return response.ok ? { data: result, error: null } : { data: null, error: { message: result.detail || 'Failed to redeem' } }
+    } catch (error) {
+      return { data: null, error: { message: 'Network error' } }
+    }
   }
 }

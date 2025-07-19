@@ -10,6 +10,8 @@ export function NavBar() {
   
   const navLinks = [
     { name: 'Stations', href: '/stations' },
+    { name: 'Tournaments', href: '/tournaments' },
+    { name: 'Rewards', href: '/rewards' },
     { name: 'Bookings', href: '/bookings' },
     { name: 'Profile', href: '/profile' }
   ]

@@ -7,6 +7,19 @@ import { Footer } from '@/components/ui/footer'
 import { TimeSlotPicker } from '@/components/ui/time-slot-picker'
 import { bookings, auth } from '@/lib/supabase'
 
+const FOOD_MENU = [
+  { name: "Fries", price: 50 },
+  { name: "Burger", price: 120 },
+  { name: "Burger + Fries", price: 150 },
+  { name: "Fries + Soft Drink", price: 80 },
+  { name: "Pizza Slice", price: 100 },
+  { name: "Chicken Wings", price: 180 },
+  { name: "Nachos", price: 90 },
+  { name: "Cold Coffee", price: 60 },
+  { name: "Energy Drink", price: 45 },
+  { name: "Combo Meal", price: 220 }
+]
+
 function BookPageContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -27,6 +40,32 @@ function BookPageContent() {
   const [duration, setDuration] = useState(1)
   const [userCount, setUserCount] = useState(1)
   const [advancePayment, setAdvancePayment] = useState(false)
+  const [selectedFood, setSelectedFood] = useState<string[]>([])
+  const [foodTotal, setFoodTotal] = useState(0)
+  const [couponCode, setCouponCode] = useState('')
+  const [couponDiscount, setCouponDiscount] = useState(0)
+
+  const validateCoupon = async (code: string) => {
+    if (!code) return
+    try {
+      const { data: { session } } = await auth.getSession()
+      const token = session?.access_token
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/validate-coupon`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ coupon_code: code })
+      })
+      const result = await response.json()
+      if (response.ok) {
+        setCouponDiscount(result.discount_percentage)
+      } else {
+        setCouponDiscount(0)
+        alert('Invalid coupon code')
+      }
+    } catch (error) {
+      setCouponDiscount(0)
+    }
+  }
 
   // Check auth state with session persistence
   useEffect(() => {
@@ -91,7 +130,10 @@ function BookPageContent() {
         end_time: selectedEndTime,
         duration_hours: duration,
         user_count: userCount,
-        advance_payment: advancePayment
+        advance_payment: advancePayment,
+        food_items: selectedFood,
+        food_total: foodTotal,
+        coupon_code: couponCode || null
       })
 
       if (error) {
@@ -207,6 +249,57 @@ function BookPageContent() {
                 </div>
               )}
 
+              {selectedStartTime && (
+                <div>
+                  <label className="block text-sm font-medium mb-2">Food Add-ons (Optional)</label>
+                  <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto">
+                    {FOOD_MENU.map((item) => (
+                      <label key={item.name} className="flex items-center space-x-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={selectedFood.includes(item.name)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedFood([...selectedFood, item.name])
+                              setFoodTotal(foodTotal + item.price)
+                            } else {
+                              setSelectedFood(selectedFood.filter(f => f !== item.name))
+                              setFoodTotal(foodTotal - item.price)
+                            }
+                          }}
+                          className="rounded border-cp-cyan/30 bg-gray-900 text-cp-cyan focus:ring-cp-cyan"
+                        />
+                        <span>{item.name} (₹{item.price})</span>
+                      </label>
+                    ))}
+                  </div>
+                  {selectedFood.length > 0 && (
+                    <div className="mt-2 text-sm text-cp-cyan">
+                      Food Total: ₹{foodTotal}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {user && selectedStartTime && (
+                <div>
+                  <label className="block text-sm font-medium mb-2">Coupon Code (Optional)</label>
+                  <input
+                    type="text"
+                    value={couponCode}
+                    onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                    onBlur={() => validateCoupon(couponCode)}
+                    placeholder="Enter coupon code"
+                    className="w-full bg-gray-900 border border-cp-cyan/30 rounded px-3 py-2 focus:border-cp-cyan focus:outline-none text-white"
+                  />
+                  {couponDiscount > 0 && (
+                    <div className="mt-1 text-sm text-green-400">
+                      ✓ {couponDiscount}% discount applied
+                    </div>
+                  )}
+                </div>
+              )}
+
               {user && selectedStartTime && (
                 <div>
                   <label className="flex items-center space-x-2 mb-4">
@@ -216,7 +309,7 @@ function BookPageContent() {
                       onChange={(e) => setAdvancePayment(e.target.checked)}
                       className="rounded border-cp-cyan/30 bg-gray-900 text-cp-cyan focus:ring-cp-cyan"
                     />
-                    <span className="text-sm">Pay 30% advance (₹{Math.round(stationRate * duration * userCount * 0.3)})</span>
+                    <span className="text-sm">Pay 30% advance (₹{Math.round((stationRate * duration * userCount + foodTotal - (stationRate * duration * userCount + foodTotal) * couponDiscount / 100) * 0.3)})</span>
                   </label>
                 </div>
               )}
@@ -224,17 +317,17 @@ function BookPageContent() {
               {user && selectedStartTime && (
                 <div className="border-t border-cp-cyan/20 pt-4">
                   <div className="text-sm text-gray-300 mb-2">
-                    ₹{stationRate}/hour × {duration} hour{duration > 1 ? 's' : ''} × {userCount} user{userCount > 1 ? 's' : ''}
+                    ₹{stationRate}/hour × {duration} hour{duration > 1 ? 's' : ''} × {userCount} user{userCount > 1 ? 's' : ''} {foodTotal > 0 && `+ ₹${foodTotal} food`} {couponDiscount > 0 && `- ${couponDiscount}% off`}
                   </div>
                   {advancePayment && (
                     <div className="flex justify-between text-sm mb-1">
                       <span>Advance (30%):</span>
-                      <span className="text-cp-cyan">₹{Math.round(stationRate * duration * userCount * 0.3)}</span>
+                      <span className="text-cp-cyan">₹{Math.round((stationRate * duration * userCount + foodTotal - (stationRate * duration * userCount + foodTotal) * couponDiscount / 100) * 0.3)}</span>
                     </div>
                   )}
                   <div className="flex justify-between text-lg font-bold">
                     <span>{advancePayment ? 'Pay Now:' : 'Total:'}</span>
-                    <span className="text-cp-yellow">₹{advancePayment ? Math.round(stationRate * duration * userCount * 0.3) : stationRate * duration * userCount}</span>
+                    <span className="text-cp-yellow">₹{advancePayment ? Math.round((stationRate * duration * userCount + foodTotal - (stationRate * duration * userCount + foodTotal) * couponDiscount / 100) * 0.3) : stationRate * duration * userCount + foodTotal - (stationRate * duration * userCount + foodTotal) * couponDiscount / 100}</span>
                   </div>
                 </div>
               )}

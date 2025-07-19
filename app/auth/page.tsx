@@ -50,7 +50,7 @@ function AuthPageContent() {
         return
       }
     } else {
-      if (!email || !password || !confirmPassword || !fullName || !username) {
+      if (!email || !password || !confirmPassword || !fullName || !username || !phone) {
         setError('Please fill in all fields')
         setLoading(false)
         return
@@ -168,7 +168,7 @@ function AuthPageContent() {
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium mb-2">Phone <span className="text-xs text-gray-400">(optional)</span></label>
+                  <label className="block text-sm font-medium mb-2">Phone</label>
                   <input
                     type="tel"
                     value={phone}

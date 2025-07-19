@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react'
 import { NavBar } from '@/components/ui/navbar'
 import { AdminGuard } from '@/components/ui/admin-guard'
 import { AdminNavBar } from '@/components/ui/admin-navbar'
+import { BookingCalendar } from '@/components/ui/booking-calendar'
+import { DateBookingsModal } from '@/components/ui/date-bookings-modal'
 import { bookings } from '@/lib/supabase'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
@@ -35,9 +37,14 @@ export default function AdminAnalytics() {
     advance_bookings_count: 0,
     total_bookings: 0
   })
+  const [selectedDate, setSelectedDate] = useState<string | null>(null)
+  const [dateBookings, setDateBookings] = useState<any>({})
+  const [bookingDates, setBookingDates] = useState<string[]>([])
+  const [showBookingsModal, setShowBookingsModal] = useState(false)
 
   useEffect(() => {
     loadAnalytics()
+    loadBookingDates()
   }, [dateFilter, customRange])
 
   useEffect(() => {
@@ -200,6 +207,44 @@ export default function AdminAnalytics() {
     return `₹${amount.toLocaleString()}`
   }
 
+  const loadBookingDates = async () => {
+    try {
+      const { data: allBookings } = await bookings.getAllBookings()
+      const dates = Array.from(new Set(
+        allBookings?.map(booking => booking.start_at.split('T')[0]) || []
+      ))
+      setBookingDates(dates)
+    } catch (error) {
+      console.error('Error loading booking dates:', error)
+    }
+  }
+
+  const loadDateBookings = async (date: string) => {
+    try {
+      const { data: { session } } = await (await import('@/lib/supabase')).auth.getSession()
+      const token = session?.access_token
+      
+      if (!token) return
+      
+      const response = await fetch(`${API_BASE_URL}/api/v1/admin/bookings/by-date?date=${date}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        setDateBookings(data)
+      }
+    } catch (error) {
+      console.error('Error loading date bookings:', error)
+    }
+  }
+
+  const handleDateSelect = async (date: string) => {
+    setSelectedDate(date)
+    await loadDateBookings(date)
+    setShowBookingsModal(true)
+  }
+
   const DailyBookingsChart = ({ data, maxValue }: any) => {
     const needsScroll = data.length > 7
     
@@ -238,19 +283,8 @@ export default function AdminAnalytics() {
       <div className="min-h-screen bg-cp-black">
         <NavBar />
         
-        {/* Admin navbar positioned below main navbar */}
-        <div className="bg-gray-800 border-b border-cyan-500/30 min-h-[60px] flex items-center w-full mt-20">
-          <div className="max-w-7xl mx-auto px-6 w-full">
-            <div className="flex space-x-8">
-              <div className="text-white py-4 px-2 text-sm font-bold">ADMIN NAVIGATION:</div>
-              <a href="/admin/dashboard" className="py-4 px-2 text-sm font-medium text-gray-300 hover:text-cyan-400">Dashboard</a>
-              <a href="/admin/stations" className="py-4 px-2 text-sm font-medium text-gray-300 hover:text-cyan-400">Stations</a>
-              <a href="/admin/bookings" className="py-4 px-2 text-sm font-medium text-gray-300 hover:text-cyan-400">Bookings</a>
-              <a href="/admin/users" className="py-4 px-2 text-sm font-medium text-gray-300 hover:text-cyan-400">Users</a>
-              <a href="/admin/analytics" className="py-4 px-2 text-sm font-medium text-yellow-400 hover:text-cyan-400">Analytics</a>
-              <a href="/admin/settings" className="py-4 px-2 text-sm font-medium text-gray-300 hover:text-cyan-400">Settings</a>
-            </div>
-          </div>
+        <div className="mt-20">
+          <AdminNavBar />
         </div>
         
         <main className="pt-6 pb-12 px-6">
@@ -398,10 +432,25 @@ export default function AdminAnalytics() {
                     maxValue={maxStationUsage}
                   />
                 </div>
+
+                {/* Station Booking Calendar */}
+                <BookingCalendar
+                  onDateSelect={handleDateSelect}
+                  selectedDate={selectedDate}
+                  bookingDates={bookingDates}
+                />
               </div>
             )}
           </div>
         </main>
+
+        {/* Date Bookings Modal */}
+        <DateBookingsModal
+          isOpen={showBookingsModal}
+          onClose={() => setShowBookingsModal(false)}
+          date={selectedDate || ''}
+          stationBookings={dateBookings}
+        />
 
         {/* Custom Date Range Modal */}
         {showCalendar && (

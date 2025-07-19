@@ -6,7 +6,10 @@ export function AdminNavBar() {
           <div className="text-white py-4 px-2 text-sm font-bold">ADMIN NAVIGATION:</div>
           <a href="/admin/dashboard" className="py-4 px-2 text-sm font-medium text-yellow-400 hover:text-cyan-400">Dashboard</a>
           <a href="/admin/stations" className="py-4 px-2 text-sm font-medium text-gray-300 hover:text-cyan-400">Stations</a>
+          <a href="/admin/tournaments" className="py-4 px-2 text-sm font-medium text-gray-300 hover:text-cyan-400">Tournaments</a>
           <a href="/admin/bookings" className="py-4 px-2 text-sm font-medium text-gray-300 hover:text-cyan-400">Bookings</a>
+          <a href="/admin/coupons" className="py-4 px-2 text-sm font-medium text-gray-300 hover:text-cyan-400">Coupons</a>
+          <a href="/admin/points" className="py-4 px-2 text-sm font-medium text-gray-300 hover:text-cyan-400">Points</a>
           <a href="/admin/users" className="py-4 px-2 text-sm font-medium text-gray-300 hover:text-cyan-400">Users</a>
           <a href="/admin/analytics" className="py-4 px-2 text-sm font-medium text-gray-300 hover:text-cyan-400">Analytics</a>
           <a href="/admin/settings" className="py-4 px-2 text-sm font-medium text-gray-300 hover:text-cyan-400">Settings</a>

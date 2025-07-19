@@ -175,26 +175,55 @@ export default function AdminBookings() {
   const [userProfiles, setUserProfiles] = useState<any>({})
   const [editingPayment, setEditingPayment] = useState<string | null>(null)
   const [paymentAmount, setPaymentAmount] = useState('')
+  const [searchTerm, setSearchTerm] = useState('')
 
   useEffect(() => {
     loadBookings()
   }, [])
 
   useEffect(() => {
-    // Filter active bookings
-    if (filter === 'ALL') {
-      setFilteredActive(activeBookings)
-    } else {
-      setFilteredActive(activeBookings.filter(booking => booking.stations?.type === filter))
+    // Apply search and filter to active bookings
+    let filtered = activeBookings
+    
+    // Apply type filter
+    if (filter !== 'ALL') {
+      filtered = filtered.filter(booking => booking.stations?.type === filter)
     }
     
-    // Filter cancelled bookings
-    if (filter === 'ALL') {
-      setFilteredCancelled(cancelledBookings)
-    } else {
-      setFilteredCancelled(cancelledBookings.filter(booking => booking.stations?.type === filter))
+    // Apply search filter
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase()
+      filtered = filtered.filter(booking => 
+        (booking.user_profiles?.username || '').toLowerCase().includes(term) ||
+        (booking.user_profiles?.full_name || '').toLowerCase().includes(term) ||
+        (booking.stations?.name || '').toLowerCase().includes(term) ||
+        booking.id.toLowerCase().includes(term) ||
+        booking.total_amount?.toString().includes(term)
+      )
     }
-  }, [activeBookings, cancelledBookings, filter])
+    
+    setFilteredActive(filtered)
+    
+    // Apply same logic to cancelled bookings
+    let filteredCancelled = cancelledBookings
+    
+    if (filter !== 'ALL') {
+      filteredCancelled = filteredCancelled.filter(booking => booking.stations?.type === filter)
+    }
+    
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase()
+      filteredCancelled = filteredCancelled.filter(booking => 
+        (booking.user_profiles?.username || '').toLowerCase().includes(term) ||
+        (booking.user_profiles?.full_name || '').toLowerCase().includes(term) ||
+        (booking.stations?.name || '').toLowerCase().includes(term) ||
+        booking.id.toLowerCase().includes(term) ||
+        booking.total_amount?.toString().includes(term)
+      )
+    }
+    
+    setFilteredCancelled(filteredCancelled)
+  }, [activeBookings, cancelledBookings, filter, searchTerm])
 
   const loadBookings = async () => {
     setLoading(true)
@@ -321,49 +350,65 @@ export default function AdminBookings() {
               <p className="text-gray-300 mt-2">View and manage all bookings</p>
             </div>
 
-            {/* Filter Buttons */}
-            <div className="mb-6 flex gap-4 items-center">
-              <div className="flex gap-2">
+            {/* Filter and Search Section */}
+            <div className="mb-6 space-y-4">
+              {/* Search Input */}
+              <div className="flex gap-4 items-center">
+                <div className="flex-1 max-w-md">
+                  <input
+                    type="text"
+                    placeholder="Search by username, station name, amount..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full bg-cp-black/50 border border-cp-cyan/30 rounded px-3 py-2 text-white placeholder-gray-400 focus:border-cp-cyan focus:outline-none"
+                  />
+                </div>
+              </div>
+              
+              {/* Filter Buttons */}
+              <div className="flex gap-4 items-center">
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setFilter('ALL')}
+                    className={`px-4 py-2 rounded text-sm font-medium ${
+                      filter === 'ALL' 
+                        ? 'bg-cp-cyan text-cp-black' 
+                        : 'bg-gray-600 text-white hover:bg-gray-500'
+                    }`}
+                  >
+                    ALL
+                  </button>
+                  <button
+                    onClick={() => setFilter('PC')}
+                    className={`px-4 py-2 rounded text-sm font-medium ${
+                      filter === 'PC' 
+                        ? 'bg-cp-cyan text-cp-black' 
+                        : 'bg-gray-600 text-white hover:bg-gray-500'
+                    }`}
+                  >
+                    PC
+                  </button>
+                  <button
+                    onClick={() => setFilter('PS5')}
+                    className={`px-4 py-2 rounded text-sm font-medium ${
+                      filter === 'PS5' 
+                        ? 'bg-cp-cyan text-cp-black' 
+                        : 'bg-gray-600 text-white hover:bg-gray-500'
+                    }`}
+                  >
+                    PS5
+                  </button>
+                </div>
+                <div className="text-gray-400 text-sm">
+                  Showing {filteredActive.length} active bookings
+                </div>
                 <button
-                  onClick={() => setFilter('ALL')}
-                  className={`px-4 py-2 rounded text-sm font-medium ${
-                    filter === 'ALL' 
-                      ? 'bg-cp-cyan text-cp-black' 
-                      : 'bg-gray-600 text-white hover:bg-gray-500'
-                  }`}
+                  onClick={() => setShowCancelled(!showCancelled)}
+                  className="bg-gray-600 text-white px-3 py-1 rounded text-sm hover:bg-gray-500"
                 >
-                  ALL
-                </button>
-                <button
-                  onClick={() => setFilter('PC')}
-                  className={`px-4 py-2 rounded text-sm font-medium ${
-                    filter === 'PC' 
-                      ? 'bg-cp-cyan text-cp-black' 
-                      : 'bg-gray-600 text-white hover:bg-gray-500'
-                  }`}
-                >
-                  PC
-                </button>
-                <button
-                  onClick={() => setFilter('PS5')}
-                  className={`px-4 py-2 rounded text-sm font-medium ${
-                    filter === 'PS5' 
-                      ? 'bg-cp-cyan text-cp-black' 
-                      : 'bg-gray-600 text-white hover:bg-gray-500'
-                  }`}
-                >
-                  PS5
+                  {showCancelled ? 'Hide' : 'Show'} Cancelled ({filteredCancelled.length})
                 </button>
               </div>
-              <div className="text-gray-400 text-sm">
-                Showing {filteredActive.length} active bookings
-              </div>
-              <button
-                onClick={() => setShowCancelled(!showCancelled)}
-                className="bg-gray-600 text-white px-3 py-1 rounded text-sm hover:bg-gray-500"
-              >
-                {showCancelled ? 'Hide' : 'Show'} Cancelled ({filteredCancelled.length})
-              </button>
             </div>
 
             {/* Active Bookings */}

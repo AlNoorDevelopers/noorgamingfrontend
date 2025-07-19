@@ -1,11 +1,67 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+
+// Simple My Coupons Component
+function MyCoupons({ userId }: { userId?: string }) {
+  const [coupons, setCoupons] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (!userId) return
+    
+    const fetchCoupons = async () => {
+      try {
+        const { auth } = await import('@/lib/supabase')
+        const { data: { session } } = await auth.getSession()
+        const token = session?.access_token
+        
+        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/my-coupons`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+        const data = await response.json()
+        setCoupons(data)
+      } catch (error) {
+        console.error('Failed to fetch coupons:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    
+    fetchCoupons()
+  }, [userId])
+
+  if (loading) return <div className="text-gray-400">Loading coupons...</div>
+
+  return (
+    <div className="space-y-3">
+      {coupons.length === 0 ? (
+        <p className="text-gray-400">No coupons available</p>
+      ) : (
+        coupons.map((coupon: any) => (
+          <div key={coupon.id} className="bg-gray-800 rounded p-3 flex justify-between items-center">
+            <div>
+              <code className="text-cp-cyan font-mono">{coupon.code}</code>
+              <span className="ml-2 text-sm text-gray-300">
+                {coupon.discount_percentage}% off • {coupon.type.replace('_', ' ')}
+              </span>
+            </div>
+            <span className={`px-2 py-1 rounded text-xs ${
+              coupon.used_by ? 'bg-red-600' : 'bg-green-600'
+            }`}>
+              {coupon.used_by ? 'Used' : 'Available'}
+            </span>
+          </div>
+        ))
+      )}
+    </div>
+  )
+}
 import { useRouter } from 'next/navigation'
 import { NavBar } from '@/components/ui/navbar'
 import { Footer } from '@/components/ui/footer'
 import { ProfilePictureUpload } from '@/components/ui/profile-picture-upload'
-import { auth, profiles, storage } from '@/lib/supabase'
+import { auth, profiles, storage, points } from '@/lib/supabase'
 
 export default function ProfilePage() {
   const [user, setUser] = useState<any>(null)
@@ -31,6 +87,12 @@ export default function ProfilePage() {
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   
+  const [referralCode, setReferralCode] = useState('')
+  
+  // Points state
+  const [pointsBalance, setPointsBalance] = useState(0)
+  const [pointsHistory, setPointsHistory] = useState([])
+  
   const router = useRouter()
 
   useEffect(() => {
@@ -55,6 +117,35 @@ export default function ProfilePage() {
     }
     getUser()
   }, [router])
+
+  useEffect(() => {
+    const fetchReferralCode = async () => {
+      if (user) {
+        const { data } = await profiles.get(user.id)
+        if (data?.referral_code) {
+          setReferralCode(data.referral_code)
+        }
+      }
+    }
+    fetchReferralCode()
+  }, [user])
+
+  useEffect(() => {
+    const fetchPoints = async () => {
+      if (user) {
+        const { data: balanceData } = await points.getBalance()
+        if (balanceData) {
+          setPointsBalance(balanceData.points_balance || 0)
+        }
+        
+        const { data: historyData } = await points.getHistory()
+        if (historyData) {
+          setPointsHistory(historyData.slice(0, 5)) // Show last 5 transactions
+        }
+      }
+    }
+    fetchPoints()
+  }, [user])
 
   const handleImageUpload = async (file: File) => {
     if (!user) return
@@ -267,7 +358,66 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* Profile Form */}
+          {/* Points Section */}
+          <div className="bg-cp-gray/20 border border-cp-cyan/20 rounded-lg p-6 mb-8">
+            <h2 className="text-xl font-bold mb-4 text-cp-yellow">Reward Points</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="text-center md:text-left">
+                <div className="text-3xl font-bold text-cp-cyan mb-2">{pointsBalance}</div>
+                <p className="text-gray-300 text-sm">Available Points</p>
+                <p className="text-gray-400 text-xs">100 points = ₹1 redemption value</p>
+                <a href="/rewards" className="inline-block mt-2 text-cp-cyan hover:text-cp-yellow text-sm font-semibold">
+                  View Rewards Shop →
+                </a>
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-gray-300 mb-2">Recent Activity</h3>
+                <div className="space-y-1">
+                  {pointsHistory.length === 0 ? (
+                    <p className="text-gray-400 text-xs">No points earned yet</p>
+                  ) : (
+                    pointsHistory.map((transaction: any) => (
+                      <div key={transaction.id} className="flex justify-between text-xs">
+                        <span className="text-gray-400">{transaction.description}</span>
+                        <span className="text-cp-cyan">+{transaction.points}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {referralCode && (
+            <div className="bg-cp-gray/20 border border-cp-cyan/20 rounded-lg p-6">
+              <h2 className="text-xl font-bold mb-4">Referral Code</h2>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-sm text-gray-300">Your Referral Code:</label>
+                  <div className="flex items-center space-x-2 mt-1">
+                    <code className="bg-gray-800 px-3 py-2 rounded text-cp-cyan">{referralCode}</code>
+                    <button 
+                      onClick={() => navigator.clipboard.writeText(referralCode)}
+                      className="text-cp-cyan hover:text-cp-yellow text-sm"
+                    >
+                      Copy
+                    </button>
+                  </div>
+                </div>
+                <p className="text-sm text-gray-400">
+                  Share this code with friends! Both you and your friend get 5% discount when they use it for their first booking.
+                </p>
+              </div>
+            </div>
+                     )}
+
+           {/* My Coupons Section */}
+           <div className="bg-cp-gray/20 border border-cp-cyan/20 rounded-lg p-6">
+             <h2 className="text-xl font-bold mb-4">My Coupons</h2>
+             <MyCoupons userId={user?.id} />
+           </div>
+
+           {/* Profile Form */}
           {showProfileForm && (
             <form onSubmit={handleProfileSubmit} className="bg-cp-gray/20 border border-cp-cyan/20 rounded-lg p-6 mb-8">
             <h2 className="text-xl font-bold mb-4 text-cp-cyan">Profile Information</h2>

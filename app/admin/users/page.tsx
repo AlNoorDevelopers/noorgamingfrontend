@@ -14,10 +14,27 @@ export default function AdminUsers() {
   const [selectedUser, setSelectedUser] = useState<any>(null)
   const [showModal, setShowModal] = useState<'details' | 'bookings' | null>(null)
   const [modalBookings, setModalBookings] = useState<any[]>([])
+  const [searchTerm, setSearchTerm] = useState('')
+  const [filteredUsers, setFilteredUsers] = useState<any[]>([])
 
   useEffect(() => {
     loadUsers()
   }, [])
+
+  useEffect(() => {
+    let filtered = userList
+    
+    // Apply search filter
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase()
+      filtered = filtered.filter(user => 
+        user.username.toLowerCase().includes(term) ||
+        (user.full_name || '').toLowerCase().includes(term)
+      )
+    }
+    
+    setFilteredUsers(filtered)
+  }, [userList, searchTerm])
 
   const loadUsers = async () => {
     setLoading(true)
@@ -81,19 +98,8 @@ export default function AdminUsers() {
       <div className="min-h-screen bg-cp-black">
         <NavBar />
         
-        {/* Admin navbar positioned below main navbar */}
-        <div className="bg-gray-800 border-b border-cyan-500/30 min-h-[60px] flex items-center w-full mt-20">
-          <div className="max-w-7xl mx-auto px-6 w-full">
-            <div className="flex space-x-8">
-              <div className="text-white py-4 px-2 text-sm font-bold">ADMIN NAVIGATION:</div>
-              <a href="/admin/dashboard" className="py-4 px-2 text-sm font-medium text-gray-300 hover:text-cyan-400">Dashboard</a>
-              <a href="/admin/stations" className="py-4 px-2 text-sm font-medium text-gray-300 hover:text-cyan-400">Stations</a>
-              <a href="/admin/bookings" className="py-4 px-2 text-sm font-medium text-gray-300 hover:text-cyan-400">Bookings</a>
-              <a href="/admin/users" className="py-4 px-2 text-sm font-medium text-yellow-400 hover:text-cyan-400">Users</a>
-              <a href="/admin/analytics" className="py-4 px-2 text-sm font-medium text-gray-300 hover:text-cyan-400">Analytics</a>
-              <a href="/admin/settings" className="py-4 px-2 text-sm font-medium text-gray-300 hover:text-cyan-400">Settings</a>
-            </div>
-          </div>
+        <div className="mt-20">
+          <AdminNavBar />
         </div>
         
         <main className="pt-6 pb-12 px-6">
@@ -105,11 +111,29 @@ export default function AdminUsers() {
               <p className="text-gray-300 mt-2">View and manage users</p>
             </div>
 
+            {/* Search Section */}
+            <div className="mb-6">
+              <div className="flex gap-4 items-center">
+                <div className="flex-1 max-w-md">
+                  <input
+                    type="text"
+                    placeholder="Search by username, full name..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full bg-cp-black/50 border border-cp-cyan/30 rounded px-3 py-2 text-white placeholder-gray-400 focus:border-cp-cyan focus:outline-none"
+                  />
+                </div>
+                <div className="text-gray-400 text-sm">
+                  {filteredUsers.length} users
+                </div>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {loading ? (
                 <div className="col-span-full text-center text-cp-cyan">Loading users...</div>
               ) : (
-                userList.map((user) => (
+                filteredUsers.map((user) => (
                   <div key={user.id} className="bg-cp-gray/20 border border-cp-cyan/20 rounded-lg p-6">
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex-1">
@@ -158,9 +182,9 @@ export default function AdminUsers() {
               )}
             </div>
 
-            {userList.length === 0 && !loading && (
+            {filteredUsers.length === 0 && !loading && (
               <div className="text-center text-gray-400 py-12">
-                <p>No users found</p>
+                <p>{searchTerm ? 'No users found matching your search' : 'No users found'}</p>
               </div>
             )}
           </div>
